@@ -29,6 +29,30 @@ def make_dictionary(train_dir):
     print(dictionary)
     return dictionary
 
+def make_dictionary_presence(train_dir):
+    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
+    all_words = []
+    print("Building dictionary...")      
+    for review in reviews:
+        with open(review, encoding="utf-8") as r:
+            prev_word = None
+            seen_words = []
+            for line in r:
+                word = ps.stem(line.rstrip())
+                if word.isalpha() and len(word) > 1 and word not in seen_words:
+                    all_words.append((word, ))
+                    if prev_word:
+                        all_words.append((prev_word, word))
+                    seen_words.append(word)
+                else:
+                    word = None
+                prev_word = word
+    dictionary = Counter(all_words)
+    dictionary = dictionary.most_common(3000)
+    dictionary.sort(key = lambda tup: tup[0])
+    print(dictionary)
+    return dictionary
+
 def extract_features(train_dir):
     reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
     features_matrix = np.zeros((len(reviews), 3000))
@@ -53,6 +77,30 @@ def extract_features(train_dir):
             docID = docID + 1 
     return features_matrix
 
+def extract_features_presence(train_dir):
+    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
+    features_matrix = np.zeros((len(reviews), 3000))
+    docID = 0
+    for review in reviews:
+        print("Extracting features for review " + str(docID) + "...")
+        with open(review, encoding="utf-8") as r:
+            prev_word = None
+            for line in r:
+                word = ps.stem(line.rstrip())
+                wordID = 0
+                i = bisect_left(dictionary, ((word, ), 0))
+                if i != len(dictionary) and dictionary[i][0] == (word, ):
+                    wordID = i
+                    features_matrix[docID, wordID] = 1
+                if prev_word:
+                    i = bisect_left(dictionary, ((prev_word, word), 0))
+                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                        wordID = i
+                        features_matrix[docID, wordID] = 1
+                prev_word = word
+            docID = docID + 1 
+    return features_matrix
+
 import numpy as np
 np.set_printoptions(threshold = np.nan)
 
@@ -60,13 +108,13 @@ all_dir = os.path.dirname(__file__) + "/data/ALL-tokenized"
 pos_dir = os.path.dirname(__file__) + "/data/POS-tokenized"
 neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
 
-dictionary = make_dictionary(all_dir)
+dictionary = make_dictionary_presence(all_dir)
 
 train_labels = np.zeros(2000)
 train_labels[1000:2000] = 1
 
-pos_train_matrix = extract_features(pos_dir)
-neg_train_matrix = extract_features(neg_dir)
+pos_train_matrix = extract_features_presence(pos_dir)
+neg_train_matrix = extract_features_presence(neg_dir)
 train_matrix = np.concatenate((pos_train_matrix, neg_train_matrix), axis=0)
 
 from sklearn.naive_bayes import MultinomialNB
