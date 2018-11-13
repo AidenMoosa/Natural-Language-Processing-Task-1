@@ -1,0 +1,2 @@
+- removed punctuation and one letter words from the dictionary
+- only kept the most common 3000 words in the dictionary
