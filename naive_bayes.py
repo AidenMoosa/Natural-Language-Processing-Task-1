@@ -17,6 +17,8 @@ ps = PorterStemmer()
 ###### THINGS TO CHANGE ######
 stem = False
 num_folds = 10
+unigrams = False
+bigrams = True
 feature_cutoff = 7
 ##############################
 
@@ -49,9 +51,11 @@ def make_dictionary(train_reviews):
             for line in r:
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 if word.isalpha() and len(word) > 1:
-                    all_words.append((word, ))
+                    if unigrams:
+                        all_words.append((word, ))
                     if prev_word:
-                        all_words.append((prev_word, word))
+                        if bigrams:
+                            all_words.append((prev_word, word))
                 else:
                     word = None
                 prev_word = word
@@ -70,9 +74,11 @@ def make_dictionary_presence(train_reviews):
             for line in r:
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 if word.isalpha() and len(word) > 1 and word not in seen_words:
-                    all_words.append((word, ))
+                    if unigrams:
+                        all_words.append((word, ))
                     if prev_word:
-                        all_words.append((prev_word, word))
+                        if bigrams:
+                            all_words.append((prev_word, word))
                     seen_words.append(word)
                 else:
                     word = None
@@ -93,15 +99,17 @@ def extract_features(reviews):
             for line in r:
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
-                i = bisect_left(dictionary, ((word, ), 0))
-                if i != len(dictionary) and dictionary[i][0] == (word, ):
-                    wordID = i
-                    features_matrix[docID, wordID] += 1
-                if prev_word:
-                    i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                if unigrams:
+                    i = bisect_left(dictionary, ((word, ), 0))
+                    if i != len(dictionary) and dictionary[i][0] == (word, ):
                         wordID = i
                         features_matrix[docID, wordID] += 1
+                if prev_word:
+                    if bigrams:
+                        i = bisect_left(dictionary, ((prev_word, word), 0))
+                        if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                            wordID = i
+                            features_matrix[docID, wordID] += 1
                 prev_word = word
             docID = docID + 1 
     return features_matrix
@@ -115,17 +123,19 @@ def extract_features_presence(reviews):
             for line in r:
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
-                i = bisect_left(dictionary, ((word, ), 0))
-                if i != len(dictionary) and dictionary[i][0] == (word, ):
-                    wordID = i
-                    features_matrix[docID, wordID] = 1
-                if prev_word:
-                    i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                if unigrams:
+                    i = bisect_left(dictionary, ((word, ), 0))
+                    if i != len(dictionary) and dictionary[i][0] == (word, ):
                         wordID = i
                         features_matrix[docID, wordID] = 1
+                if prev_word:
+                    if bigrams:
+                        i = bisect_left(dictionary, ((prev_word, word), 0))
+                        if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                            wordID = i
+                            features_matrix[docID, wordID] = 1
                 prev_word = word
-            docID = docID + 1 
+            docID = docID + 1
     return features_matrix
 
 def get_stratified_split(pos_dir, neg_dir, num_folds, offset):
