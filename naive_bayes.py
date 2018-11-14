@@ -15,10 +15,11 @@ neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
 ps = PorterStemmer()
 
 ###### THINGS TO CHANGE ######
+presence = True
 stem = False
 num_folds = 10
-unigrams = False
-bigrams = True
+unigrams = True
+bigrams = False
 feature_cutoff = 7
 ##############################
 
@@ -86,7 +87,6 @@ def make_dictionary_presence(train_reviews):
     dictionary = Counter(all_words)
     dictionary = dictionary.most_common(len(dictionary))
     dictionary = [(w, n) for (w, n) in dictionary if n > feature_cutoff]
-    print(len(dictionary))
     dictionary.sort(key = lambda tup: tup[0])
     return dictionary
 
@@ -168,13 +168,13 @@ for i in range(num_folds):
     (train_reviews, test_reviews) = get_stratified_split(pos_dir, neg_dir, num_folds, i)
 
     print("Building training dictionary...")
-    dictionary = make_dictionary_presence(train_reviews)
+    dictionary = make_dictionary_presence(train_reviews) if presence else make_dictionary(train_reviews)
 
     print("Extracting training features...")
     train_length = len(train_reviews)
     train_labels = np.zeros(train_length)
     train_labels[train_length//2:train_length] = 1
-    train_matrix = extract_features_presence(train_reviews)
+    train_matrix = extract_features_presence(train_reviews) if presence else extract_features(train_reviews)
 
     print("Training naive bayes model...")
     model1 = MultinomialNB()
@@ -188,16 +188,20 @@ for i in range(num_folds):
     test_length = len(test_reviews)
     test_labels = np.zeros(test_length)
     test_labels[test_length//2:test_length] = 1
-    test_matrix = extract_features_presence(test_reviews)
+    test_matrix = extract_features_presence(test_reviews) if presence else extract_features(test_reviews)
 
     print("Gathering accuracy scores...")
     result1 = model1.predict(test_matrix)
     scores1.append(accuracy_score(test_labels, result1))
     result2 = model2.predict(test_matrix)
     scores2.append(accuracy_score(test_labels, result2))
-    
-print(scores1)
-print(scores2)
 
 p = calculate_p(scores1, scores2)
-print(p)
+
+print("Features:" + " Unigrams" if unigrams else "" + " Bigrams" if bigrams else "")
+print("No. Features: " + len(dictionary))
+print("Frequency or Presence?: " + "Presence" if presence else "Frequency")
+print("Stemmed?: " + "Yes" if stem else "No")
+print("NB Score: " + np.mean(scores1))
+print("SVM Score: " + np.mean(scores2))
+print("P-Value: " + p)
