@@ -17,7 +17,7 @@ ps = PorterStemmer()
 ###### THINGS TO CHANGE ######
 stem = False
 num_folds = 10
-dictionary_length = 1000
+feature_cutoff = 7
 ##############################
 
 def calculate_p(scores1, scores2):
@@ -56,7 +56,8 @@ def make_dictionary(train_reviews):
                     word = None
                 prev_word = word
     dictionary = Counter(all_words)
-    dictionary = dictionary.most_common(dictionary_length)
+    dictionary = dictionary.most_common(len(dictionary))
+    dictionary = [(w, n) for (w, n) in dictionary if n > feature_cutoff]
     dictionary.sort(key = lambda tup: tup[0])
     return dictionary
 
@@ -77,12 +78,14 @@ def make_dictionary_presence(train_reviews):
                     word = None
                 prev_word = word
     dictionary = Counter(all_words)
-    dictionary = dictionary.most_common(dictionary_length)
+    dictionary = dictionary.most_common(len(dictionary))
+    dictionary = [(w, n) for (w, n) in dictionary if n > feature_cutoff]
+    print(len(dictionary))
     dictionary.sort(key = lambda tup: tup[0])
     return dictionary
 
 def extract_features(reviews):
-    features_matrix = np.zeros((len(reviews), dictionary_length))
+    features_matrix = np.zeros((len(reviews), len(dictionary)))
     docID = 0
     for review in reviews:
         with open(review, encoding="utf-8") as r:
@@ -91,12 +94,12 @@ def extract_features(reviews):
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
                 i = bisect_left(dictionary, ((word, ), 0))
-                if i != dictionary_length and dictionary[i][0] == (word, ):
+                if i != len(dictionary) and dictionary[i][0] == (word, ):
                     wordID = i
                     features_matrix[docID, wordID] += 1
                 if prev_word:
                     i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != dictionary_length and dictionary[i][0] == (prev_word, word):
+                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
                         wordID = i
                         features_matrix[docID, wordID] += 1
                 prev_word = word
@@ -104,7 +107,7 @@ def extract_features(reviews):
     return features_matrix
 
 def extract_features_presence(reviews):
-    features_matrix = np.zeros((len(reviews), dictionary_length))
+    features_matrix = np.zeros((len(reviews), len(dictionary)))
     docID = 0
     for review in reviews:
         with open(review, encoding="utf-8") as r:
@@ -113,12 +116,12 @@ def extract_features_presence(reviews):
                 word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
                 i = bisect_left(dictionary, ((word, ), 0))
-                if i != dictionary_length and dictionary[i][0] == (word, ):
+                if i != len(dictionary) and dictionary[i][0] == (word, ):
                     wordID = i
                     features_matrix[docID, wordID] = 1
                 if prev_word:
                     i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != dictionary_length and dictionary[i][0] == (prev_word, word):
+                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
                         wordID = i
                         features_matrix[docID, wordID] = 1
                 prev_word = word
