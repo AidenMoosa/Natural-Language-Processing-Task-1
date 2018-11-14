@@ -1,21 +1,41 @@
 import os
 from collections import Counter
-
 from bisect import bisect_left
-
+from math import ceil
+from scipy.special import binom
 from nltk.stem import PorterStemmer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
 
-ps = PorterStemmer()
+def calculate_p(scores1, scores2):
+    Plus, Null, Minus = 0, 0, 0
+    for i in range(0, 10):
+        if scores1[i] > scores2[i]:
+            Plus += 1
+        elif scores1[i] == scores2[i]:
+            Null += 1
+        else:
+            Minus += 1
 
-def make_dictionary(train_dir):
-    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
+    N = 2*ceil(Null/2) + Plus + Minus
+    k = ceil(Null/2) + min(Plus, Minus)
+    q = 0.5
+
+    p = 0
+    for i in range(0, k+1):
+        p += binom(N, i) * pow(q, i) * pow((1 - q), N-i)
+    p *= 2
+
+    return p
+
+def make_dictionary(train_reviews):
     all_words = []
-    print("Building dictionary...")      
-    for review in reviews:
+    for review in train_reviews:
         with open(review, encoding="utf-8") as r:
             prev_word = None
             for line in r:
-                word = ps.stem(line.rstrip())
+                word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 if word.isalpha() and len(word) > 1:
                     all_words.append((word, ))
                     if prev_word:
@@ -24,21 +44,18 @@ def make_dictionary(train_dir):
                     word = None
                 prev_word = word
     dictionary = Counter(all_words)
-    dictionary = dictionary.most_common(3000)
+    dictionary = dictionary.most_common(dictionary_length)
     dictionary.sort(key = lambda tup: tup[0])
-    print(dictionary)
     return dictionary
 
-def make_dictionary_presence(train_dir):
-    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
+def make_dictionary_presence(train_reviews):
     all_words = []
-    print("Building dictionary...")      
-    for review in reviews:
+    for review in train_reviews:
         with open(review, encoding="utf-8") as r:
             prev_word = None
             seen_words = []
             for line in r:
-                word = ps.stem(line.rstrip())
+                word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 if word.isalpha() and len(word) > 1 and word not in seen_words:
                     all_words.append((word, ))
                     if prev_word:
@@ -48,105 +65,128 @@ def make_dictionary_presence(train_dir):
                     word = None
                 prev_word = word
     dictionary = Counter(all_words)
-    dictionary = dictionary.most_common(3000)
+    dictionary = dictionary.most_common(dictionary_length)
     dictionary.sort(key = lambda tup: tup[0])
-    print(dictionary)
     return dictionary
 
-def extract_features(train_dir):
-    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
-    features_matrix = np.zeros((len(reviews), 3000))
+def extract_features(reviews):
+    features_matrix = np.zeros((len(reviews), dictionary_length))
     docID = 0
     for review in reviews:
-        print("Extracting features for review " + str(docID) + "...")
         with open(review, encoding="utf-8") as r:
             prev_word = None
             for line in r:
-                word = ps.stem(line.rstrip())
+                word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
                 i = bisect_left(dictionary, ((word, ), 0))
-                if i != len(dictionary) and dictionary[i][0] == (word, ):
+                if i != dictionary_length and dictionary[i][0] == (word, ):
                     wordID = i
                     features_matrix[docID, wordID] += 1
                 if prev_word:
                     i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                    if i != dictionary_length and dictionary[i][0] == (prev_word, word):
                         wordID = i
                         features_matrix[docID, wordID] += 1
                 prev_word = word
             docID = docID + 1 
     return features_matrix
 
-def extract_features_presence(train_dir):
-    reviews = [os.path.join(train_dir, f) for f in os.listdir(train_dir)]    
-    features_matrix = np.zeros((len(reviews), 3000))
+def extract_features_presence(reviews):
+    features_matrix = np.zeros((len(reviews), dictionary_length))
     docID = 0
     for review in reviews:
-        print("Extracting features for review " + str(docID) + "...")
         with open(review, encoding="utf-8") as r:
             prev_word = None
             for line in r:
-                word = ps.stem(line.rstrip())
+                word = ps.stem(line.rstrip()) if stem else line.rstrip()
                 wordID = 0
                 i = bisect_left(dictionary, ((word, ), 0))
-                if i != len(dictionary) and dictionary[i][0] == (word, ):
+                if i != dictionary_length and dictionary[i][0] == (word, ):
                     wordID = i
                     features_matrix[docID, wordID] = 1
                 if prev_word:
                     i = bisect_left(dictionary, ((prev_word, word), 0))
-                    if i != len(dictionary) and dictionary[i][0] == (prev_word, word):
+                    if i != dictionary_length and dictionary[i][0] == (prev_word, word):
                         wordID = i
                         features_matrix[docID, wordID] = 1
                 prev_word = word
             docID = docID + 1 
     return features_matrix
 
+def get_stratified_split(pos_dir, neg_dir, num_folds, offset):
+    pos_reviews = [os.path.join(pos_dir, f) for f in os.listdir(pos_dir)]
+    neg_reviews = [os.path.join(neg_dir, f) for f in os.listdir(neg_dir)]
+    train_reviews = []
+    test_reviews = []
+
+    i = 0
+    while i < len(pos_reviews):
+        test_reviews.append(pos_reviews[i + offset])
+        for j in range(1, num_folds):
+            index = i + ((j + offset) % num_folds)
+            train_reviews.append(pos_reviews[index])
+        i += num_folds
+
+    i = 0
+    while i < len(neg_reviews):
+        test_reviews.append(neg_reviews[i + offset])
+        for j in range(1, num_folds):
+            index = i + ((j + offset) % num_folds)
+            train_reviews.append(neg_reviews[i + (j % num_folds)])
+        i += num_folds
+
+    return (train_reviews, test_reviews)
+
+
+
 import numpy as np
 np.set_printoptions(threshold = np.nan)
 
-all_dir = os.path.dirname(__file__) + "/data/ALL-tokenized"
 pos_dir = os.path.dirname(__file__) + "/data/POS-tokenized"
 neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
 
-dictionary = make_dictionary_presence(all_dir)
+stem = False
+num_folds = 10
+dictionary_length = 1000
 
-train_labels = np.zeros(2000)
-train_labels[1000:2000] = 1
+ps = PorterStemmer()
 
-pos_train_matrix = extract_features_presence(pos_dir)
-neg_train_matrix = extract_features_presence(neg_dir)
-train_matrix = np.concatenate((pos_train_matrix, neg_train_matrix), axis=0)
+scores1, scores2 = [], []
+for i in range(num_folds):
+    print("Splitting reviews into training/test sets: " + str(i+1) + "/" + str(num_folds))
+    (train_reviews, test_reviews) = get_stratified_split(pos_dir, neg_dir, num_folds, i)
 
-from sklearn.naive_bayes import MultinomialNB
-model1 = MultinomialNB()
+    print("Building training dictionary...")
+    dictionary = make_dictionary_presence(train_reviews)
 
-from sklearn.svm import SVC
-model2 = SVC(kernel="linear")
+    print("Extracting training features...")
+    train_length = len(train_reviews)
+    train_labels = np.zeros(train_length)
+    train_labels[train_length//2:train_length] = 1
+    train_matrix = extract_features_presence(train_reviews)
 
-from sklearn.model_selection import cross_val_score
-scores1 = cross_val_score(model1, train_matrix, train_labels, cv=10)
+    print("Training naive bayes model...")
+    model1 = MultinomialNB()
+    model1.fit(train_matrix, train_labels)
+
+    print("Training SVM model...")
+    model2 = SVC(kernel="linear")
+    model2.fit(train_matrix, train_labels)
+
+    print("Extracting test features...")
+    test_length = len(test_reviews)
+    test_labels = np.zeros(test_length)
+    test_labels[test_length//2:test_length] = 1
+    test_matrix = extract_features_presence(test_reviews)
+
+    print("Gathering accuracy scores...")
+    result1 = model1.predict(test_matrix)
+    scores1.append(accuracy_score(test_labels, result1))
+    result2 = model2.predict(test_matrix)
+    scores2.append(accuracy_score(test_labels, result2))
+    
 print(scores1)
-scores2 = cross_val_score(model2, train_matrix, train_labels, cv=10)
 print(scores2)
 
-from math import ceil
-Plus, Null, Minus = 0, 0, 0
-for i in range(0, 10):
-    if scores1[i] > scores2[i]:
-        Plus += 1
-    elif scores1[i] == scores2[i]:
-        Null += 1
-    else:
-        Minus += 1
-print("Plus: " + str(Plus) + "Null: " + str(Null))
-N = 2*ceil(Null/2) + Plus + Minus
-k = ceil(Null/2) + min(Plus, Minus)
-q = 0.5
-
-from scipy.special import binom
-
-p = 0
-for i in range(0, k+1):
-  p += binom(N, i) * pow(q, i) * pow((1 - q), N-i)
-p *= 2
+p = calculate_p(scores1, scores2)
 print(p)
