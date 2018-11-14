@@ -8,15 +8,16 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
--sklearn (v0.19)
-
-
+* sklearn (0.19)
+* nltk (3.3)
 
 ### Installing
 
-
+* Download and install the prerequisite libraries (e.g. using pip).
+* Clone the repo onto your workspace.
 
 ## Running the tests
 
-Change the variables at the top of the source code in order to modify the parameters (e.g. whether to use stemming or not) of the system. Run with any Python 3(.7) IDE in order to receive a summary of the results gathered from training and testing the NB and SVM models.
+* Use source code editing software to change variables at the top of the source code in order to modify the parameters (e.g. whether to use stemming or not) of the system.
+* Run the source code with any Python 3(.7) interpreter in order to receive a printed summary of the results gathered from training and testing the NB and SVM models.
 
