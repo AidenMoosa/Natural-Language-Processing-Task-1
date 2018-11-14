@@ -15,11 +15,11 @@ neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
 ps = PorterStemmer()
 
 ###### THINGS TO CHANGE ######
-presence = False
-stem = False
+presence = True
+stem = True
 num_folds = 10
-unigrams = True
-bigrams = False
+unigrams = False
+bigrams = True
 feature_cutoff = 7
 ##############################
 
