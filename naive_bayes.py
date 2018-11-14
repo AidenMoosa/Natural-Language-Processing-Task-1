@@ -7,6 +7,18 @@ from nltk.stem import PorterStemmer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
+import numpy as np
+
+pos_dir = os.path.dirname(__file__) + "/data/POS-tokenized"
+neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
+
+ps = PorterStemmer()
+
+###### THINGS TO CHANGE ######
+stem = False
+num_folds = 10
+dictionary_length = 1000
+##############################
 
 def calculate_p(scores1, scores2):
     Plus, Null, Minus = 0, 0, 0
@@ -136,20 +148,6 @@ def get_stratified_split(pos_dir, neg_dir, num_folds, offset):
         i += num_folds
 
     return (train_reviews, test_reviews)
-
-
-
-import numpy as np
-np.set_printoptions(threshold = np.nan)
-
-pos_dir = os.path.dirname(__file__) + "/data/POS-tokenized"
-neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
-
-stem = False
-num_folds = 10
-dictionary_length = 1000
-
-ps = PorterStemmer()
 
 scores1, scores2 = [], []
 for i in range(num_folds):
