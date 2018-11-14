@@ -15,7 +15,7 @@ neg_dir = os.path.dirname(__file__) + "/data/NEG-tokenized"
 ps = PorterStemmer()
 
 ###### THINGS TO CHANGE ######
-presence = True
+presence = False
 stem = False
 num_folds = 10
 unigrams = True
@@ -198,10 +198,11 @@ for i in range(num_folds):
 
 p = calculate_p(scores1, scores2)
 
+print("")
 print("Features:" + " Unigrams" if unigrams else "" + " Bigrams" if bigrams else "")
-print("No. Features: " + len(dictionary))
+print("No. Features: " + str(len(dictionary)))
 print("Frequency or Presence?: " + "Presence" if presence else "Frequency")
 print("Stemmed?: " + "Yes" if stem else "No")
-print("NB Score: " + np.mean(scores1))
-print("SVM Score: " + np.mean(scores2))
-print("P-Value: " + p)
+print("NB Score: " + str(np.mean(scores1)))
+print("SVM Score: " + str(np.mean(scores2)))
+print("P-Value: " + str(p))
