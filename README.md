@@ -1,4 +1,4 @@
-# Natural Language Processing Assignment 1
+# Natural Language Processing Task 1
 
 This assignment saw us reproduce the famous paper by Pang et al (2002) that expands on simple Naïve Bayes BoW-based sentiment classification of movie reviews. The changes explored were the use of Support Vector Machines, which outperforms Naïve Bayes in many NLP tasks, as well as some slight implementation modifications. 
 
